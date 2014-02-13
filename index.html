@@ -1,9 +1,16 @@
 <html>
 <head>
+<script src="Snappy.js/Snappy.js"></script>
 <script src="Long.js/Long.js"></script>
 <script src="ByteBuffer.js/ByteBuffer.js"></script>
 <script src="ProtoBuf.js/ProtoBuf.js"></script>
-<script src="uncompress.js"></script>
+   <script>
+      // Check for the various File API support.
+      if (window.File && window.FileReader && window.FileList && window.Blob) {
+      } else {
+        alert('The File APIs are not fully supported in this browser.');
+      }
+   </script>
 </head>
 <body>
    <input type="file" id="files" name="files[]" multiple />
@@ -241,20 +248,17 @@
 
     if (kind in demoPackets && demoPackets[kind].ignore != true) {
       var msg = pbDota2.build(demoPackets[kind].proto);
-      var buf;
+      var buf = byteBuffer.slice(byteBuffer.offset, byteBuffer.offset + size);
 
       if (comp) {
         console.log("Compressed!");
 
         try {
-          buf = uncompress(new Uint8Array(byteBuffer.array, byteBuffer.offset, size));
-          buf = ByteBuffer.wrap(buf.buffer);
+          buf = Snappy.uncompress(buf);
         } catch(error) {
           console.log("snappy_uncompress error: " + error);
           buf = null;
         }
-      } else {
-        buf = byteBuffer.slice(byteBuffer.offset, byteBuffer.offset + size);
       }
 
       if (buf != null) {
