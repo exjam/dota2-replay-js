@@ -1,4 +1,3 @@
-
 (function(global) {
     var Snappy = function() {
     };
@@ -21,11 +20,7 @@
 
         var copy = function(output, length, offset) {
             var ptr = output.offset - offset;
-
-            if (ptr < 0) {
-                throw new Error('offset > this.output')
-            }
-
+            
             for(var i = 0; i < length; ++i) {
                 output.writeByte(output.readByte(ptr + i));
             }
