@@ -1,0 +1,9 @@
+[submodule "ByteBuffer.js"]
+	path = ByteBuffer.js
+	url = https://github.com/dcodeIO/ByteBuffer.js.git
+[submodule "Long.js"]
+	path = Long.js
+	url = https://github.com/dcodeIO/Long.js.git
+[submodule "ProtoBuf.js"]
+	path = ProtoBuf.js
+	url = https://github.com/dcodeIO/ProtoBuf.js.git
