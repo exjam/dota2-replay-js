@@ -112,12 +112,12 @@
       DOTA_UM_VoteEnd : 122,
   };
 
-  var userMessages = [];
+  var userMessages = {};
 
   userMessages[EBaseUserMessages.UM_TextMsg] = { proto: "CUserMsg_TextMsg" };
 
-  var demoPackets = [];
-  var embdPackets = [];
+  var demoPackets = {};
+  var embdPackets = {};
 
   var EDemoCommands ={
     DEM_Error : -1,
@@ -146,7 +146,7 @@
   demoPackets[EDemoCommands.DEM_FileInfo]     = { proto: "CDemoFileInfo" };
   demoPackets[EDemoCommands.DEM_SyncTick]     = { proto: "CDemoSyncTick", ignore: true };
   demoPackets[EDemoCommands.DEM_SendTables]   = { proto: "CDemoSendTables", embedded: true };
-  demoPackets[EDemoCommands.DEM_ClassInfo]    = { proto: "CDemoClassInfo" };
+  demoPackets[EDemoCommands.DEM_ClassInfo]    = { proto: "CDemoClassInfo", func: readDemoClassInfo };
   demoPackets[EDemoCommands.DEM_StringTables] = { proto: "CDemoStringTables", func: readDemoStringTables };
   demoPackets[EDemoCommands.DEM_Packet]       = { proto: "CDemoPacket", embedded: true };
   demoPackets[EDemoCommands.DEM_SignonPacket] = { proto: "CDemoPacket", embedded: true };
@@ -168,14 +168,14 @@
     net_SignonState : 7,
   };
 
-  embdPackets[NET_Messages.net_NOP] = { proto: "CNETMsg_NOP", ignore: true };
-  embdPackets[NET_Messages.net_Disconnect] = { proto: "CNETMsg_Disconnect" };
-  embdPackets[NET_Messages.net_File] = { proto: "CNETMsg_File" };
+  embdPackets[NET_Messages.net_NOP]             = { proto: "CNETMsg_NOP", ignore: true };
+  embdPackets[NET_Messages.net_Disconnect]      = { proto: "CNETMsg_Disconnect" };
+  embdPackets[NET_Messages.net_File]            = { proto: "CNETMsg_File" };
   embdPackets[NET_Messages.net_SplitScreenUser] = { proto: "CNETMsg_SplitScreenUser" };
-  embdPackets[NET_Messages.net_Tick] = { proto: "CNETMsg_Tick" };
-  embdPackets[NET_Messages.net_StringCmd] = { proto: "CNETMsg_StringCmd" };
-  embdPackets[NET_Messages.net_SetConVar] = { proto: "CNETMsg_SetConVar" };
-  embdPackets[NET_Messages.net_SignonState] = { proto: "CNETMsg_SignonState" };
+  embdPackets[NET_Messages.net_Tick]            = { proto: "CNETMsg_Tick" };
+  embdPackets[NET_Messages.net_StringCmd]       = { proto: "CNETMsg_StringCmd" };
+  embdPackets[NET_Messages.net_SetConVar]       = { proto: "CNETMsg_SetConVar" };
+  embdPackets[NET_Messages.net_SignonState]     = { proto: "CNETMsg_SignonState" };
 
   var SVC_Messages = {
     svc_ServerInfo : 8,
@@ -205,36 +205,134 @@
     svc_PacketReliable : 32,
   };
 
-  embdPackets[SVC_Messages.svc_ServerInfo] = { proto: "CSVCMsg_ServerInfo" };
-  embdPackets[SVC_Messages.svc_SendTable] = { proto: "CSVCMsg_SendTable" };
-  embdPackets[SVC_Messages.svc_ClassInfo] = { proto: "CSVCMsg_ClassInfo" };
-  embdPackets[SVC_Messages.svc_SetPause] = { proto: "CSVCMsg_SetPause" };
+  embdPackets[SVC_Messages.svc_ServerInfo]        = { proto: "CSVCMsg_ServerInfo", func: readServerInfo };
+  embdPackets[SVC_Messages.svc_SendTable]         = { proto: "CSVCMsg_SendTable", func: readSendTable };
+  embdPackets[SVC_Messages.svc_ClassInfo]         = { proto: "CSVCMsg_ClassInfo" };
+  embdPackets[SVC_Messages.svc_SetPause]          = { proto: "CSVCMsg_SetPause" };
   embdPackets[SVC_Messages.svc_CreateStringTable] = { proto: "CSVCMsg_CreateStringTable", func: readCreateStringTable };
-  embdPackets[SVC_Messages.svc_UpdateStringTable] = { proto: "CSVCMsg_UpdateStringTable" };
-  embdPackets[SVC_Messages.svc_VoiceInit] = { proto: "CSVCMsg_VoiceInit" };
-  embdPackets[SVC_Messages.svc_VoiceData] = { proto: "CSVCMsg_VoiceData" };
-  embdPackets[SVC_Messages.svc_Print] = { proto: "CSVCMsg_Print" };
-  embdPackets[SVC_Messages.svc_Sounds] = { proto: "CSVCMsg_Sounds" };
-  embdPackets[SVC_Messages.svc_SetView] = { proto: "CSVCMsg_SetView" };
-  embdPackets[SVC_Messages.svc_FixAngle] = { proto: "CSVCMsg_FixAngle" };
-  embdPackets[SVC_Messages.svc_CrosshairAngle] = { proto: "CSVCMsg_CrosshairAngle" };
-  embdPackets[SVC_Messages.svc_BSPDecal] = { proto: "CSVCMsg_BSPDecal" };
-  embdPackets[SVC_Messages.svc_SplitScreen] = { proto: "CSVCMsg_SplitScreen" };
-  embdPackets[SVC_Messages.svc_UserMessage] = { proto: "CSVCMsg_UserMessage", func: readUserMessage };
-  //embdPackets[SVC_Messages.svc_EntityMessage] = { proto: "" }; ? where r u
-  embdPackets[SVC_Messages.svc_GameEvent] = { proto: "CSVCMsg_GameEvent" };
-  embdPackets[SVC_Messages.svc_PacketEntities] = { proto: "CSVCMsg_PacketEntities" };
-  embdPackets[SVC_Messages.svc_TempEntities] = { proto: "CSVCMsg_TempEntities" };
-  embdPackets[SVC_Messages.svc_Prefetch] = { proto: "CSVCMsg_Prefetch" };
-  embdPackets[SVC_Messages.svc_Menu] = { proto: "CSVCMsg_Menu" };
-  embdPackets[SVC_Messages.svc_GameEventList] = { proto: "CSVCMsg_GameEventList" };
-  embdPackets[SVC_Messages.svc_GetCvarValue] = { proto: "CSVCMsg_GetCvarValue" };
-  embdPackets[SVC_Messages.svc_PacketReliable] = { proto: "CSVCMsg_PacketReliable" };
+  embdPackets[SVC_Messages.svc_UpdateStringTable] = { proto: "CSVCMsg_UpdateStringTable", func: readUpdateStringTable };
+  embdPackets[SVC_Messages.svc_VoiceInit]         = { proto: "CSVCMsg_VoiceInit" };
+  embdPackets[SVC_Messages.svc_VoiceData]         = { proto: "CSVCMsg_VoiceData" };
+  embdPackets[SVC_Messages.svc_Print]             = { proto: "CSVCMsg_Print" };
+  embdPackets[SVC_Messages.svc_Sounds]            = { proto: "CSVCMsg_Sounds" };
+  embdPackets[SVC_Messages.svc_SetView]           = { proto: "CSVCMsg_SetView" };
+  embdPackets[SVC_Messages.svc_FixAngle]          = { proto: "CSVCMsg_FixAngle" };
+  embdPackets[SVC_Messages.svc_CrosshairAngle]    = { proto: "CSVCMsg_CrosshairAngle" };
+  embdPackets[SVC_Messages.svc_BSPDecal]          = { proto: "CSVCMsg_BSPDecal" };
+  embdPackets[SVC_Messages.svc_SplitScreen]       = { proto: "CSVCMsg_SplitScreen" };
+  embdPackets[SVC_Messages.svc_UserMessage]       = { proto: "CSVCMsg_UserMessage", func: readUserMessage };
+  //embdPackets[SVC_Messages.svc_EntityMessage]   = { proto: "" }; ? where r u
+  embdPackets[SVC_Messages.svc_GameEvent]         = { proto: "CSVCMsg_GameEvent" };
+  embdPackets[SVC_Messages.svc_PacketEntities]    = { proto: "CSVCMsg_PacketEntities", func: readPacketEntities };
+  embdPackets[SVC_Messages.svc_TempEntities]      = { proto: "CSVCMsg_TempEntities" };
+  embdPackets[SVC_Messages.svc_Prefetch]          = { proto: "CSVCMsg_Prefetch" };
+  embdPackets[SVC_Messages.svc_Menu]              = { proto: "CSVCMsg_Menu" };
+  embdPackets[SVC_Messages.svc_GameEventList]     = { proto: "CSVCMsg_GameEventList" };
+  embdPackets[SVC_Messages.svc_GetCvarValue]      = { proto: "CSVCMsg_GetCvarValue" };
+  embdPackets[SVC_Messages.svc_PacketReliable]    = { proto: "CSVCMsg_PacketReliable" };
+
+  var BitMask = [ 0x00, 0x01, 0x03, 0x70, 0x0f,
+                        0x1f, 0x3f, 0x7f, 0xff ];
+
+  var BitStream = function(byteBuffer)
+  {
+    this.bitOffset = 0;
+    this.byteBuffer = byteBuffer;
+  };
+
+  BitStream.prototype.readString = function(max)
+  {
+    var result = "";
+
+    max = typeof max !== 'undefined' ? max : 128;
+
+    for (var i = 0; i < max; ++i) {
+      var chr = this.readBits(8);
+      
+      if (chr == 0) {
+        break;
+      } else {
+        result += String.fromCharCode(chr);
+      }
+    }
+
+    return result;
+  };
+
+  BitStream.prototype.readBitString = function(bits)
+  {
+    var result = new ByteBuffer(bytes);
+    result.length = bytes;
+
+    while (bits > 0) {
+      var read = Math.min(bits, 8);
+      result.writeUint8(this.readBits(read));
+      bits -= read;
+    }
+
+    result.offset = 0;
+    return result;
+  };
+
+  BitStream.prototype.readBits = function(bits)
+  {
+    var value = 0;
+
+    while (bits > 0) {
+      var byte = this.byteBuffer.readUint8(this.byteBuffer.offset);
+      
+      // How many bits are left in this byte
+      var rem = 8 - this.bitOffset;
+
+      // How many bits to read
+      var read = bits < rem ? bits : rem;
+
+      value = (value << bits) | ((byte >> this.bitOffset) & BitMask[read]);
+      this.bitOffset += read;
+      bits -= read;
+
+      if (this.bitOffset == 8) {
+        this.bitOffset = 0;
+        this.byteBuffer.offset += 1;
+      }
+    }
+
+    return value;
+  };
+
+  dcodeIO.ByteBuffer.prototype.readBytes = function(length)
+  {
+    var result = this.slice(this.offset, this.offset + length);
+    this.offset += length;
+    return result;
+  }
+
+  dcodeIO.ByteBuffer.prototype.readArray = function(length, type)
+  {
+    var result = [];
+
+    for (var i = 0; i < length; ++i) {
+      result[i] = type();
+    }
+
+    return result;
+  }
+
+  Math.log2 = function(n) {
+      return Math.log(n) / Math.log(2);
+  };
 
   var ProtoBuf = dcodeIO.ProtoBuf;
   var ByteBuffer = dcodeIO.ByteBuffer;
 
   var pbDota2 = ProtoBuf.loadProtoFile("dota2.proto");
+
+  var gameState = {
+    classInfo: { },
+    netTables: { },
+    stringTables: { },
+    serverInfo: null
+  };
 
   function readPacket(byteBuffer)
   {
@@ -244,21 +342,14 @@
     var size = byteBuffer.readVarint();
     kind &= EDemoCommands.DEM_Max;
 
-    console.log("Kind: " + kind + " tick: " + tick + " size: " + size);
-
     if (kind in demoPackets && demoPackets[kind].ignore != true) {
       var msg = pbDota2.build(demoPackets[kind].proto);
       var buf = byteBuffer.slice(byteBuffer.offset, byteBuffer.offset + size);
 
-      if (comp) {
-        console.log("Compressed!");
+      console.log("Kind: " + demoPackets[kind].proto + " tick: " + tick + " size: " + size);
 
-        try {
-          buf = Snappy.uncompress(buf);
-        } catch(error) {
-          console.log("snappy_uncompress error: " + error);
-          buf = null;
-        }
+      if (comp) {
+        buf = Snappy.uncompress(buf);
       }
 
       if (buf != null) {
@@ -281,6 +372,8 @@
           demoPackets[kind].func(decoded);
         }
       }
+    } else {
+      console.log("Kind: [UNKNOWN] " + kind + " tick: " + tick + " size: " + size);
     }
 
     byteBuffer.offset += size;
@@ -292,11 +385,11 @@
     var size = byteBuffer.readVarint();
     var start = byteBuffer.offset;
 
-    if (byteBuffer.offset + size > byteBuffer.length) {
-      console.log("attempt to read past end of byteBuffer!!!");
-    } else if (kind in embdPackets && embdPackets[kind].ignore != true) {
+    if (kind in embdPackets && embdPackets[kind].ignore != true) {
       var msg = pbDota2.build(embdPackets[kind].proto);
       var buf = byteBuffer.slice(byteBuffer.offset, byteBuffer.offset + size);
+
+      console.log("eKind: " + embdPackets[kind].proto + " size: " + size);
 
       try {
         var decoded = msg.decode(buf);
@@ -308,6 +401,8 @@
       } catch (error) {
         console.log("protobuf decode error: " + error);
       }
+    } else { 
+      console.log("eKind: [UNKNOWN] " + kind + " size: " + size);
     }
 
     byteBuffer.offset = start + size;
@@ -321,14 +416,157 @@
     if (type in userMessages && userMessages[type].ignore != true) {
       var userMsg = pbDota2.build(userMessages[type].proto);
       var decoded = userMsg.decode(data);
+
+      console.log("uKind: " + userMessages[type].proto + " size: " + size);
       console.log(decoded);
 
       if (userMessages[kind].func != undefined) {
         userMessages[kind].func(decoded);
       }
+    } else {
+      console.log("uKind: [UNKNOWN] " + type + " size: " + size);
     }
 
     console.log("USER MESSAGE: " + type);
+  }
+
+  function readPacketEntities(pkt)
+  {
+    var stream = new BitStream(pkt.entity_data.clone());
+    var entity_id = -1;
+
+    return;
+
+    var class_bits = Math.ceil(Math.log2(gameState.serverInfo.max_classes));
+
+    for (var i = 0; i < pkt.updated_entries; ++i) {
+      var index = stream.readBits(6);
+
+      if ((index & 0x30) != 0) {
+        var a = (index >> 4) & 3;
+        var b = (a == 3) ? 16 : 0;
+        var idx = stream.readBits(4 * a + b) << 4;
+        index = idx | index & 0xf;
+      }
+
+      var pvs = stream.readBits(2);
+      entity_id += index + 1;
+
+      switch (pvs) {
+      case 0: /* Preserve */
+        break;
+      case 1: /* Leave */
+        break;
+      case 2: /* Enter */
+        var class_id = stream.read(class_bits);
+        var serial = stream.read(10);
+
+        break;
+      case 3: /* Deleted */
+        break;
+      }
+
+      console.log("entity index: " + index + " pvs: " + pvs);
+    }
+  }
+
+/*
+message CSVCMsg_CreateStringTable {
+  optional string name = 1;
+  optional int32 max_entries = 2;
+  optional int32 num_entries = 3;
+  optional bool user_data_fixed_size = 4;
+  optional int32 user_data_size = 5;
+  optional int32 user_data_size_bits = 6;
+  optional int32 flags = 7;
+  optional bytes string_data = 8;
+}
+
+message CSVCMsg_UpdateStringTable {
+  optional int32 table_id = 1;
+  optional int32 num_changed_entries = 2;
+  optional bytes string_data = 3;
+}
+*/
+  function readUpdateStringTable(msg)
+  {
+    var STRINGTABLE_KEY_HISTORY = 32;
+
+    var entries = msg.num_entries;
+    var stream = new BitStream(msg.string_data.clone());
+    var index = -1;
+
+    /* If true, stream contains no names, only updates */
+    var full = stream.readBits(1);
+
+    var keys = [];
+
+    if (!(msg.name in gameState.stringTables)) {
+      gameState.stringTables[msg.name] = {
+        db: { }
+      };
+    }
+    
+    var stringTable = gameState.stringTables[msg.name];
+
+    for (var i = 0; i < entries; ++i) {
+      var inc = stream.readBits(1);
+      var key = "";
+      var value = "";
+
+      if (!!inc) {
+        index++;
+      } else {
+        index = Math.ceil(Math.log2(msg.max_entries));
+      }
+
+      var hasKey = stream.readBits(1);
+      if (hasKey) {
+        stream.readBits(1);
+        
+        var prefix = stream.readBits(1);
+
+        if (prefix) {
+          /* Read prefix from a previous key */
+          var preIdx = stream.readBits(5);
+          var preLen = stream.readBits(5);
+
+          key = keys[preIdx].slice(0, preLen);
+          key += stream.readString();
+        } else {
+          key = stream.readString();
+        }
+
+        keys.push(key);
+
+        if (keys.length > STRINGTABLE_KEY_HISTORY) {
+          keys.shift();
+        }
+      }
+
+      var hasValue = stream.readBits(1);
+      if (hasValue) {
+        /* Read value */
+        var length;
+        var size;
+
+        if (msg.user_data_fixed_size) {
+          length = msg.user_data_size;
+          size = msg.user_data_size_bits;
+        } else {
+          length = stream.readBits(14);
+          size = length * 8;
+        }
+
+        value = stream.readBitString(size);
+      }
+
+      if (hasKey) {
+        stringTable.db[key] = value;
+      } else {
+        stringTable.db[index] = value;
+      }
+    }
   }
 
   function readCreateStringTable(msg)
@@ -342,45 +580,58 @@
   }
 
   function readDemoStringTables(msg)
-  {      
-/*
-    ("xuid", ctypes.c_ulonglong),
-      ("name", ctypes.c_char * 32),
-      ("userID", ctypes.c_int32),
-      ("guid", ctypes.c_char * 33),
-      ("friendsID", ctypes.c_uint32),
-      ("friendsName", ctypes.c_char * 32),
-      ("fakeplayer", ctypes.c_bool),
-      ("ishltv", ctypes.c_bool),
-      ("customFiles", ctypes.c_uint32 * 4),
-      ("filesDownloaded", ctypes.c_ubyte),
-*/
+  {
     for (var i = 0; i < msg.tables.length; ++i) {
       if (msg.tables[i].table_name == "userinfo") {
         for (var j = 0; j < msg.tables[i].items.length; ++j) {
           var data = msg.tables[i].items[j].data;
-          var userinfo = {};
-          userinfo.xuid = data.readUint64();
-          userinfo.name = data.readUTF8StringBytes(32);
-          userinfo.userID = data.readUint32();
-          userinfo.guid = data.readUTF8StringBytes(33);
-          userinfo.friendsID = data.readUint32();
-          userinfo.friendsName = data.readUTF8StringBytes(32);
-          userinfo.fakeplayer = data.readUint32();
-          userinfo.ishltv = data.readUint32();
-          userinfo.customFiles = [];
-          userinfo.customFiles[0] = data.readUint32();
-          userinfo.customFiles[1] = data.readUint32();
-          userinfo.customFiles[2] = data.readUint32();
-          userinfo.customFiles[3] = data.readUint32();
-          userinfo.filesDownloaded = data.readUint8();
-          console.log("DEMOSTRINGTABLES USERINFO MOTHERFUCKER");
-          console.log(userinfo);
+          var info = {};
+
+          if (data != null) {
+            data = data.clone();
+
+            info.xuid             = data.readUint64();
+            info.name             = data.readUTF8StringBytes(32);
+            info.userID           = data.readUint32();
+            info.guid             = data.readBytes(33);
+            info.friendsID        = data.readUint32();
+            info.friendsName      = data.readBytes(32);
+            info.fakeplayer       = data.readUint32();
+            info.ishltv           = data.readUint32();
+            info.customFiles      = data.readArray(4, function(){ return data.readUint32(); });
+            info.filesDownloaded  = data.readUint8();
+
+            console.log(info);
+          }
         }
       }
     }
-    console.log("DEMOSTRINGTABLES");
+
     console.log(msg.tables);
+  }
+
+  function readDemoClassInfo(info)
+  {
+    for (var i = 0; i < info.classes.length; ++i) {
+      var cls = info.classes[i];
+
+      if (!(cls.class_id in gameState.classInfo)) {
+        gameState.classInfo[cls.class_id] = { };
+      }
+
+      gameState.classInfo[cls.class_id].network_name = cls.network_name;
+      gameState.classInfo[cls.class_id].table_name = cls.table_name;
+    }
+  }
+
+  function readServerInfo(info)
+  {
+    gameState.serverInfo = info;
+  }
+
+  function readSendTable(msg)
+  {
+    gameState.netTables[msg.net_table_name] = msg.props;
   }
 
   function handleFileSelect(evt)
