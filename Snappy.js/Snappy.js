@@ -12,7 +12,7 @@
         var input  = byteBuffer.clone();
         var start = input.offset;
         var size = input.readVarint();
-        var output = new ByteBuffer(size);
+        var output = new dcodeIO.ByteBuffer(size);
 
         output.offset = 0;
         output.length = size;
