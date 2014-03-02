@@ -206,6 +206,40 @@
             this.classInfo[cls.class_id].network_name = cls.network_name;
             this.classInfo[cls.class_id].table_name = cls.table_name;
         }
+
+        this.compileNetTables();
+    };
+
+    DotaDemo.prototype.gatherExcludes = function(table, excludes)
+    {
+        for (var j = 0; j < table.props.length; ++j) {
+            var prop = table.props[j];
+
+            if (prop.flags & SP_Exclude) {
+                excludes.push(prop.dt_name + prop.var_name);
+            } else if (prop.type == SP_DataTable) {
+                gatherExcludes(this.netTables[prop.dt_name], excludes);
+            }
+        }
+
+        return excludes;
+    }
+
+    DotaDemo.prototype.gatherProperties = function(table, excludes)
+    {
+    };
+
+    DotaDemo.prototype.buildHierarchy = function(table, excludes)
+    {
+    };
+
+    DotaDemo.prototype.compileNetTables = function()
+    {
+        for (var i = 0; i < this.netTables.length; ++i) {
+            var table = this.netTables[i];
+            var excludes = gatherExcludes(table, []);
+
+        }
     };
 
     DotaDemo.prototype.readDemoStringTables = function(msg)
@@ -277,11 +311,36 @@
         }
     }
 
+    function readPropList(stream)
+    {
+        var props = [];
+        var cursor = -1;
+        var offset = 0;
+
+        while (true) {
+            if (stream.readBit()) {
+                cursor++;
+            } else {
+                var offset = stream.readVarInt();
+
+                if (offset == 0x3FFF) {
+                    break;
+                }
+
+                cursor += offset + 1;
+            }
+
+            props.push(cursor);
+        }
+
+        return props;
+    }
+
     DotaDemo.prototype.readPacketEntities = function(msg)
     {
         var stream = new BitStream(msg.entity_data.clone());
         var index = -1;
-        var class_bits = Math.ceil(Math.log(this.serverInfo.max_classes) / Math.LOG2E);
+        var class_bits = Math.ceil(Math.log(this.serverInfo.max_classes) / Math.log(2));
 
         for (var i = 0; i < msg.updated_entries; ++i) {
             var pvs;
@@ -309,6 +368,8 @@
                     var classID = stream.readBitNumber(class_bits);
                     var serial = stream.readBitNumber(10);
 
+                    var props = readPropList(stream);
+
                     assert(classID in this.classInfo);
                     var cls = this.classInfo[classID];
 
@@ -323,6 +384,15 @@
 
                     var baselineTable = this.stringTables["instancebaseline"];
                     var baseline  = baselineTable.string_data["_" + classID];
+
+                    /* Read baseline properties */
+                    {
+                        var propList = readPropList(stream);
+
+                        for (var i = 0; i < propList.length; ++i) {
+
+                        }
+                    }
 
                     break;
                 case 3: /* Deleted */

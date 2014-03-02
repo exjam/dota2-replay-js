@@ -39,6 +39,11 @@
         return result;
     };
 
+    BitStream.prototype.readBit = function()
+    {
+        return this.readBitNumber(1);
+    };
+
     BitStream.prototype.readBitNumber = function(bits)
     {
         var value = 0;
@@ -58,6 +63,21 @@
                 this.byteBuffer.offset += 1;
             }
         }
+
+        return value;
+    };
+
+    BitStream.prototype.readVarInt = function()
+    {
+        var value = 0;
+        var byte = 0;
+        var shift = 0;
+
+        do {
+            byte = this.readBitNumber(8);
+            value |= (byte & 0x7F) << shift;
+            shift += 7;
+        } while (byte & 0x80 && shift < 35);
 
         return value;
     };
