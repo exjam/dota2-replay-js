@@ -24,6 +24,7 @@
         this.addGameMessageListener(dota.msg.svc_UpdateStringTable, this.readGameUpdateStringTable.bind(this));
         this.addGameMessageListener(dota.msg.svc_UserMessage, this.readUserMessage.bind(this));
         this.addGameMessageListener(dota.msg.svc_PacketEntities, this.readPacketEntities.bind(this));
+        this.addGameMessageListener(dota.msg.net_SignonState, this.readNetSignonState.bind(this));
     };
 
     DotaDemo.pbMessages = dcodeIO.ProtoBuf.loadProtoFile("dota2.proto");
@@ -76,6 +77,7 @@
         var offset = byteBuffer.readUint32();
 
         if (header != "PBUFDEM") {
+            //FIXME
             //throw(new Error("DotaDemo.read: could not find PBUFDEM header"));
         }
 
@@ -199,46 +201,82 @@
         for (var i = 0; i < msg.classes.length; ++i) {
             var cls = msg.classes[i];
 
-            if (!(cls.class_id in this.classInfo)) {
-                this.classInfo[cls.class_id] = { };
-            }
-
-            this.classInfo[cls.class_id].network_name = cls.network_name;
-            this.classInfo[cls.class_id].table_name = cls.table_name;
+            this.classInfo[cls.class_id] = {
+                class_id:     cls.class_id,
+                table_name:   cls.table_name,
+                network_name: cls.network_name
+            };
         }
-
-        this.compileNetTables();
     };
 
-    DotaDemo.prototype.gatherExcludes = function(table, excludes)
+    DotaDemo.prototype.flatten = function(table)
     {
-        for (var j = 0; j < table.props.length; ++j) {
-            var prop = table.props[j];
+        return this._flatten(table, [], []);
+    };
 
-            if (prop.flags & SP_Exclude) {
-                excludes.push(prop.dt_name + prop.var_name);
-            } else if (prop.type == SP_DataTable) {
-                gatherExcludes(this.netTables[prop.dt_name], excludes);
+    DotaDemo.prototype._flatten = function(table, props, paths)
+    {
+        var acc = this._flatten_collapsible(table, props, paths, []);
+        var path = paths.join(".");
+
+        if (path.length) {
+            path = path.concat(".");
+        }
+
+        for (var i = 0; i < acc.length; ++i) {
+            var orig = acc[i];
+            var prop = {
+                var_name:       path + orig.var_name,
+                type:           orig.type,
+                flags:          orig.flags,
+                num_bits:       orig.num_bits,
+                priority:       orig.priority,
+                low_value:      orig.low_value,
+                high_value:     orig.high_value,
+                num_elements:   orig.num_elements,
+            };
+
+            props.push(prop);
+        }
+
+        return props;
+    };
+
+    DotaDemo.prototype._flatten_collapsible = function(table, props, paths, acc)
+    {
+        for (var i = 0; i < table.props.length; ++i) {
+            var prop = table.props[i];
+
+            if (prop.flags & (dota.prop.Flag.InsideArray | dota.prop.Flag.Exclude)) {
+                continue;
+            }
+
+            if (prop.type == dota.prop.Type.DataTable) {
+                if (prop.flags & dota.prop.Flag.Collapsible) {
+                    this._flatten_collapsible(this.netTables[prop.dt_name], props, paths, acc);
+                } else {
+                    paths.push(prop.dt_name);
+                    this._flatten(this.netTables[prop.dt_name], props, paths);
+                    paths.pop();
+                }
+            } else {
+                acc.push(prop);
             }
         }
 
-        return excludes;
-    }
-
-    DotaDemo.prototype.gatherProperties = function(table, excludes)
-    {
-    };
-
-    DotaDemo.prototype.buildHierarchy = function(table, excludes)
-    {
+        return acc;
     };
 
     DotaDemo.prototype.compileNetTables = function()
     {
-        for (var i = 0; i < this.netTables.length; ++i) {
-            var table = this.netTables[i];
-            var excludes = gatherExcludes(table, []);
+        this.recvTables = { };
 
+        for (var table_name in this.netTables) {
+            var table = this.netTables[table_name];
+
+            if (table.needs_decoder) {
+                this.recvTables[table_name] = this.flatten(table);
+            }
         }
     };
 
@@ -284,7 +322,11 @@
             this.netTables = { };
         }
 
-        this.netTables[msg.net_table_name] = msg.props;
+        this.netTables[msg.net_table_name] = {
+            net_name: msg.net_table_name,
+            needs_decoder: msg.needs_decoder,
+            props: msg.props
+        };
     };
 
     DotaDemo.prototype.readGameCreateStringTable = function(msg)
@@ -336,6 +378,13 @@
         return props;
     }
 
+    DotaDemo.prototype.readNetSignonState = function(msg)
+    {
+        if (msg.signon_state == 5) {
+            this.compileNetTables();
+        }
+    };
+
     DotaDemo.prototype.readPacketEntities = function(msg)
     {
         var stream = new BitStream(msg.entity_data.clone());
@@ -385,10 +434,24 @@
                     var baselineTable = this.stringTables["instancebaseline"];
                     var baseline  = baselineTable.string_data["_" + classID];
 
-                    /* Read baseline properties */
-                    {
-                        var propList = readPropList(stream);
+                    assert(cls.table_name in this.recvTables);
+                    var recvTable = this.recvTables[cls.table_name];
 
+                    var propList = readPropList(stream);
+
+                    /* decoder.decodeBaseLine */
+                    {
+                        var baseline = [];
+
+                        for (var i = 0; i < recvTable.length; ++i) {
+                            var prop = recvTable[i];
+                            var value = null;/* decode prop based on prop.Type */
+                            baseline.push(value);
+                        }
+                    }
+
+                    /* decoder.decode(propList) */
+                    {
                         for (var i = 0; i < propList.length; ++i) {
 
                         }

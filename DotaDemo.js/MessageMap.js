@@ -150,6 +150,6 @@
     UserMessages[dota.msg.DOTA_UM_VoteEnd]                  = "CDOTAUserMsg_VoteEnd";
 
     global["dota"]["msg"]["DemoMessages"] = DemoMessages;
-    global["dota"]["msg"]["GameMessages"] = GameMessages
+    global["dota"]["msg"]["GameMessages"] = GameMessages;
     global["dota"]["msg"]["UserMessages"] = UserMessages;
 })(this);
