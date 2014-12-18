@@ -7,11 +7,11 @@
         return byteBuffer.readVarint(byteBuffer.offset);
     };
 
-    Snappy.uncompress = function(byteBuffer) 
+    Snappy.uncompress = function(byteBuffer)
     {
         var input  = byteBuffer.clone();
         var start = input.offset;
-        var size = input.readVarint();
+        var size = input.readVarint32();
         var output = new dcodeIO.ByteBuffer(size);
 
         output.offset = 0;
@@ -20,7 +20,7 @@
 
         var copy = function(output, length, offset) {
             var ptr = output.offset - offset;
-            
+
             for(var i = 0; i < length; ++i) {
                 output.writeByte(output.readByte(ptr + i));
             }

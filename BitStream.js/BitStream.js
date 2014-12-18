@@ -48,10 +48,16 @@
     {
         var value = 0;
         var read = 0;
+        var byte, count;
 
         while (bits > 0) {
-            var byte = this.byteBuffer.readUint8(this.byteBuffer.offset);
-            var count = Math.min(bits, 8 - this.bitOffset);
+            if (this.byteBuffer.offset === this.byteBuffer.limit) {
+                byte = 0; // They pad up to 4 byte boundary with 0
+            } else {
+                byte = this.byteBuffer.readUint8(this.byteBuffer.offset);
+            }
+
+            count = Math.min(bits, 8 - this.bitOffset);
 
             value = value | ((byte >> this.bitOffset) & BitStream.BitMask[count]) << read;
             this.bitOffset += count;
@@ -65,6 +71,13 @@
         }
 
         return value;
+    };
+
+    BitStream.prototype.readFloat = function()
+    {
+        var buf = new ArrayBuffer(4);
+        (new Uint32Array(buf))[0] = this.readBitNumber(32);
+        return (new Float32Array(buf))[0];
     };
 
     BitStream.prototype.readVarInt = function()

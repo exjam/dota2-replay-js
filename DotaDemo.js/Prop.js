@@ -1,284 +1,279 @@
 (function(global) {
-    var Prop = function(path, dt_prop)
-    {
-        this.var_name     = path + dt_prop.var_name;
-        this.type         = dt_prop.type;
-        this.flags        = dt_prop.flags;
-        this.num_bits     = dt_prop.num_bits;
-        this.priority     = dt_prop.priority;
-        this.low_value    = dt_prop.low_value;
-        this.high_value   = dt_prop.high_value;
-        this.num_elements = dt_prop.num_elements;
+    var Type =  {
+        Int            : 0,
+        Float          : 1,
+        Vector         : 2,
+        VectorXY       : 3,
+        String_        : 4,
+        Array_         : 5,
+        DataTable      : 6,
+        Int64          : 7,
     };
 
-    var Type = function()
-    {
-        this.Int            = 0;
-        this.Float          = 1;
-        this.Vector         = 2;
-        this.VectorXY       = 3;
-        this.String_        = 4;
-        this.Array_         = 5;
-        this.DataTable      = 6;
-        this.Int64          = 7;
+    var Flag = {
+        Unsigned                : 1 <<  0,
+        Coord                   : 1 <<  1,
+        NoScale                 : 1 <<  2,
+        RoundDown               : 1 <<  3,
+        RoundUp                 : 1 <<  4,
+        Normal                  : 1 <<  5,
+        Exclude                 : 1 <<  6,
+        Xyze                    : 1 <<  7,
+        InsideArray             : 1 <<  8,
+        ProxyAlways             : 1 <<  9,
+        VectorElem              : 1 << 10,
+        Collapsible             : 1 << 11,
+        CoordMp                 : 1 << 12,
+        CoordMpLowPrecision     : 1 << 13,
+        CoordMpIntegral         : 1 << 14,
+        CellCoord               : 1 << 15,
+        CellCoordLowPrecision   : 1 << 16,
+        CellCoordIntegral       : 1 << 17,
+        ChangesOften            : 1 << 18,
+        EncodedAgainstTickCount : 1 << 19,
     };
 
-    var Flag = function()
+    var Decoder = {};
+
+    Decoder.COORD_INTEGER_BITS = 14;
+    Decoder.COORD_FRACTIONAL_BITS = 5;
+    Decoder.COORD_DENOMINATOR = 1 << Decoder.COORD_FRACTIONAL_BITS;
+    Decoder.COORD_RESOLUTION = 1.0 / Decoder.COORD_DENOMINATOR;
+
+    Decoder.COORD_INTEGER_BITS_MP = 11;
+    Decoder.COORD_FRACTIONAL_BITS_MP_LOWPRECISION = 3;
+    Decoder.COORD_DENOMINATOR_LOWPRECISION = 1 << Decoder.COORD_FRACTIONAL_BITS_MP_LOWPRECISION;
+    Decoder.COORD_RESOLUTION_LOWPRECISION = 1.0 / Decoder.COORD_DENOMINATOR_LOWPRECISION;
+
+    Decoder.NORMAL_FRACTIONAL_BITS = 11;
+    Decoder.NORMAL_DENOMINATOR = (1 << Decoder.NORMAL_FRACTIONAL_BITS) - 1;
+    Decoder.NORMAL_RESOLUTION = 1.0 / Decoder.NORMAL_DENOMINATOR;
+
+    Decoder.readStream = function(stream, prop)
     {
-        this.Unsigned                = 1 <<  0;
-        this.Coord                   = 1 <<  1;
-        this.NoScale                 = 1 <<  2;
-        this.RoundDown               = 1 <<  3;
-        this.RoundUp                 = 1 <<  4;
-        this.Normal                  = 1 <<  5;
-        this.Exclude                 = 1 <<  6;
-        this.Xyze                    = 1 <<  7;
-        this.InsideArray             = 1 <<  8;
-        this.ProxyAlways             = 1 <<  9;
-        this.VectorElem              = 1 << 10;
-        this.Collapsible             = 1 << 11;
-        this.CoordMp                 = 1 << 12;
-        this.CoordMpLowPrecision     = 1 << 13;
-        this.CoordMpIntegral         = 1 << 14;
-        this.CellCoord               = 1 << 15;
-        this.CellCoordLowPrecision   = 1 << 16;
-        this.CellCoordIntegral       = 1 << 17;
-        this.ChangesOften            = 1 << 18;
-        this.EncodedAgainstTickCount = 1 << 19;
-    };
+        var value;
 
-    Prop.prototype.COORD_INTEGER_BITS = 14;
-    Prop.prototype.COORD_FRACTIONAL_BITS = 5;
-    Prop.prototype.COORD_DENOMINATOR = 1 << Prop.COORD_FRACTIONAL_BITS;
-    Prop.prototype.COORD_RESOLUTION = 1.0 / Prop.COORD_DENOMINATOR;
-
-    Prop.prototype.COORD_INTEGER_BITS_MP = 11;
-    Prop.prototype.COORD_FRACTIONAL_BITS_MP_LOWPRECISION = 3;
-    Prop.prototype.COORD_DENOMINATOR_LOWPRECISION = 1 << Prop.COORD_FRACTIONAL_BITS_MP_LOWPRECISION;
-    Prop.prototype.COORD_RESOLUTION_LOWPRECISION = 1.0 / Prop.COORD_DENOMINATOR_LOWPRECISION;
-
-    Prop.prototype.NORMAL_FRACTIONAL_BITS = 11;
-    Prop.prototype.NORMAL_DENOMINATOR = (1 << Prop.NORMAL_FRACTIONAL_BITS) - 1;
-    Prop.prototype.NORMAL_RESOLUTION = 1.0 / Prop.NORMAL_DENOMINATOR;
-
-    Prop.prototype.readStream = function(stream)
-    {
-        switch (this.type) {
-            case dota.Prop.Type.Int:
-                this.readInt(stream);
-                break;
-            case dota.Prop.Type.Float:
-                this.readFloat(stream);
-                break;
-            case dota.Prop.Type.Vector:
-                this.readVector(stream);
-                break;
-            case dota.Prop.Type.VectorXY:
-                this.readVectorXY(stream);
-                break;
-            case dota.Prop.Type.String_:
-                this.readString(stream);
-                break;
-            case dota.Prop.Type.Array_:
-                this.readArray(stream);
-                break;
-            case dota.Prop.Type.DataTable:
-                this.readDataTable(stream);
-                break;
-            case dota.Prop.Type.Int64:
-                this.readInt64(stream);
-                break;
+        switch (prop.type) {
+        case Type.Int:
+            value = Decoder.readInt(stream, prop);
+            break;
+        case Type.Float:
+            value = Decoder.readFloat(stream, prop);
+            break;
+        case Type.Vector:
+            value = Decoder.readVector(stream, prop);
+            break;
+        case Type.VectorXY:
+            value = Decoder.readVectorXY(stream, prop);
+            break;
+        case Type.String_:
+            value = Decoder.readString(stream, prop);
+            break;
+        case Type.Array_:
+            value = Decoder.readArray(stream, prop);
+            break;
+        case Type.Int64:
+            value = Decoder.readInt64(stream, prop);
+            break;
+        default:
+            console.log('unexpected prop.type', prop.type);
+            debugger;
+            break;
         }
+
+        return value;
     };
 
-    Prop.prototype.readInt = function(stream)
+    Decoder.readInt = function(stream, prop)
     {
-        if (this.flags & dota.Prop.Flag.EncodedAgainstTickCount) {
-            this.value = stream.readVarInt();
+        var value;
 
-            if (!(this.flags & dota.Prop.Flag.Unsigned)) {
-                //XXX: do something weird
-            }
+        if (prop.flags & Flag.EncodedAgainstTickCount) {
+            value = stream.readVarInt();
         } else {
-            this.value = stream.readBitNumber(this.num_bits);
-
-            if (!(this.flags & dota.Prop.Flag.Unsigned)) {
-                //XXX: do something weird
-            }
+            value = stream.readBitNumber(prop.num_bits);
         }
+
+        // TODO: process values
+        return value;
     };
 
-    Prop.prototype.readFloat = function(stream)
+    Decoder.readFloat = function(stream, prop)
     {
-        if (flags & dota.Prop.Flag.Coord) {
-            this.readFloatCoord(stream);
-        } else if (flags & dota.Prop.Flag.CoordMp) {
-            this.readFloatCoordMp(stream);
-        } else if (flags & dota.Prop.Flag.CoordMpIntegral) {
-            this.readFloatCoordMpIntegral(stream);
-        } else if (flags & dota.Prop.Flag.CoordMpLowPrecision) {
-            this.readFloatCoordMpLowPrecision(stream);
-        } else if (flags & dota.Prop.Flag.NoScale) {
-            this.readFloatNoScale(stream);
-        } else if (flags & dota.Prop.Flag.Normal) {
-            this.readFloatNormal(stream);
-        } else if (flags & dota.Prop.Flag.CellCoord) {
-            this.readFloatCellCoord(stream);
-        } else if (flags & dota.Prop.Flag.CellCoordIntegral) {
-            this.readFloatCellCoordIntegral(stream);
+        var value;
+        var flags = prop.flags;
+
+        if (flags & Flag.Coord) {
+            value = Decoder.readFloatCoord(stream, prop);
+        } else if (flags & Flag.CoordMp) {
+            value = Decoder.readFloatCoordMp(stream, prop);
+        } else if (flags & Flag.CoordMpIntegral) {
+            value = Decoder.readFloatCoordMpIntegral(stream, prop);
+        } else if (flags & Flag.CoordMpLowPrecision) {
+            value = Decoder.readFloatCoordMpLowPrecision(stream, prop);
+        } else if (flags & Flag.NoScale) {
+            value = Decoder.readFloatNoScale(stream, prop);
+        } else if (flags & Flag.Normal) {
+            value = Decoder.readFloatNormal(stream, prop);
+        } else if (flags & Flag.CellCoord) {
+            value = Decoder.readFloatCellCoord(stream, prop);
+        } else if (flags & Flag.CellCoordIntegral) {
+            value = Decoder.readFloatCellCoordIntegral(stream, prop);
         } else {
-            this.readFloatDefault(stream);
+            value = Decoder.readFloatDefault(stream, prop);
         }
+
+        return value;
     };
 
-    Prop.prototype.readFloatCoord = function(stream)
+    Decoder.readFloatCoord = function(stream, prop)
     {
-        var int_ = stream.readBit();
-        var frac = stream.readBit();
+        var integral = stream.readBit();
+        var fraction = stream.readBit();
 
-        if (!int_ && !frac) {
-            this.value = 0.0;
-            return;
+        if (!integral && !fraction) {
+            return 0.0;
         }
 
         var sign = stream.readBit();
 
-        if (int_) {
-            int_ = stream.readBitNumber(Prop.COORD_INTEGER_BITS);
+        if (integral) {
+            integral = stream.readBitNumber(Decoder.COORD_INTEGER_BITS) + 1;
         }
 
-        if (frac) {
-            frac = (float)stream.readBitNumber(Prop.COORD_FRACTIONAL_BITS);
+        if (fraction) {
+            fraction = stream.readBitNumber(Decoder.COORD_FRACTIONAL_BITS);
         }
 
-        this.value = int_ + frac * Prop.COORD_RESOLUTION;
-
-        if (sign) {
-            this.value = -this.value;
-        }
+        var value = integral + (fraction * Decoder.COORD_RESOLUTION);
+        return sign ? -value : value;
     };
 
-    Prop.prototype.readFloatCoordMp = function(stream)
+    Decoder.readFloatCoordMp = function(stream, prop)
     {
-        var inBounds = stream.readBit();
-        var int_ = stream.readBit();
+        console.log('unimplemented readFloatCoordMp');
+        debugger;
+    };
+
+    Decoder.readFloatCoordMpIntegral = function(stream, prop)
+    {
+        console.log('unimplemented readFloatCoordMpIntegral');
+        debugger;
+    };
+
+    Decoder.readFloatCoordMpLowPrecision = function(stream, prop)
+    {
+        console.log('unimplemented readFloatCoordMpLowPrecision');
+        debugger;
+    };
+
+    Decoder.readFloatNoScale = function(stream, prop)
+    {
+        return stream.readFloat();
+    };
+
+    Decoder.readFloatNormal = function(stream, prop)
+    {
         var sign = stream.readBit();
-
-        if (int_) {
-            if (mp) {
-                int_ = stream.readBitNumber(Prop.COORD_INTEGER_BITS_MP + 1);
-            } else {
-                int_ = stream.readBitNumber(Prop.COORD_INTEGER_BITS + 1);
-            }
-        }
-
-        var frac = (float)stream.readBitNumber(5);
-
-        this.value = int_ + (frac * (1.0 / (1 << 5)));
-        
-        if (sign) {
-            this.value = -this.value;
-        }
+        var value = stream.readBitNumber(Decoder.NORMAL_FRACTIONAL_BITS);
+        value = value * Decoder.NORMAL_RESOLUTION;
+        return sign ? -value : value;
     };
 
-    Prop.prototype.readFloatCoordMpIntegral = function(stream)
+    Decoder.readFloatCellCoord = function(stream, prop)
     {
-        var mp = stream.readBit();
-        var int_ = stream.readBit();
-        
-        if (int_) {
-            var sign = stream.readBit();
+        var value = stream.readBitNumber(prop.num_bits);
+        var fraction = stream.readBitNumber(Decoder.COORD_FRACTIONAL_BITS);
+        return value + Decoder.COORD_RESOLUTION * fraction;
+    };
 
-            if (mp) {
-                this.value = stream.readBitNumber(Prop.COORD_INTEGER_BITS_MP + 1);
-            } else {
-                this.value = stream.readBitNumber(Prop.COORD_INTEGER_BITS + 1);
+    Decoder.readFloatCellCoordIntegral = function(stream, prop)
+    {
+        return stream.readBitNumber(prop.num_bits);
+    };
+
+    Decoder.readFloatDefault = function(stream, prop)
+    {
+        var value = stream.readBitNumber(prop.num_bits);
+        value = value / ((1 << prop.num_bits) - 1);
+        return value * (prop.high_value - prop.low_value) + prop.low_value;
+    };
+
+    Decoder.readVector = function(stream, prop)
+    {
+        var x = Decoder.readFloat(stream, prop);
+        var y = Decoder.readFloat(stream, prop);
+        var z = 0.0;
+
+        if (prop.flags & Flag.Normal) {
+            var f = x * x + y * y;
+            z = 1.0 >= f ? 0.0 : Math.sqrt(1.0 - f);
+            z = stream.readBit() ? -z : z;
+        } else {
+            z = Decoder.readFloat(stream, prop);
+        }
+
+        return { x: x, y: y, z: z };
+    };
+
+    Decoder.readVectorXY = function(stream, prop)
+    {
+        var x = Decoder.readFloat(stream, prop);
+        var y = Decoder.readFloat(stream, prop);
+        return { x: x, y: y };
+    };
+
+    Decoder.readString = function(stream, prop)
+    {
+        var length = stream.readBitNumber(9);
+        return stream.readString(length);
+    };
+
+    Decoder.readArray = function(stream, prop)
+    {
+        var bits = Math.max(1, Math.ceil(Math.log(prop.num_elements) / Math.log(2)));
+
+        var count = stream.readBitNumber(bits);
+        var value = [];
+
+        for (var i = 0; i < count; ++i) {
+            value.push(Decoder.readStream(stream, prop.template));
+        }
+
+        return value;
+    };
+
+    Decoder.readInt64 = function(stream, prop)
+    {
+        var value;
+
+        if (prop.flags & Flag.EncodedAgainstTickCount) {
+            value = stream.readVarInt();
+        } else {
+            var sign = 0;
+            var remainder = prop.num_bits - 32;
+
+            if (!(prop.flags & Flag.Unsigned)) {
+                sign = stream.readBit();
+                remainder -= 1;
             }
+
+            var lo = stream.readBitNumber(32);
+            var hi = stream.readBitNumber(remainder);
+
+            value = new dcodeIO.Long(lo, hi);
 
             if (sign) {
-                this.value = -this.value;
+                value = value.negate();
             }
-        } else {
-            this.value = 0.0;
-        }
-    };
-
-    Prop.prototype.readFloatCoordMpLowPrecision = function(stream)
-    {
-        var mp = stream.readBit();
-        var int_ = stream.readBit();
-        var sign = stream.readBit();
-        var frac;
-
-
-        if (mp) {
-            if (int_) {
-                int_ = stream.readBitNumber(Prop.COORD_INTEGER_BITS_MP + 1);
-            }
-
-            frac = stream.readBitNumber(Prop.COORD_FRACTIONAL_BITS);
-        } else {
-            if (int_) {
-                int_ = stream.readBitNumber(Prop.COORD_INTEGER_BITS + 1);
-            }
-
-            frac = stream.readBitNumber(Prop.COORD_FRACTIONAL_BITS);
         }
 
-        this.value = int_ + (frac * (1.0 / (1 << 3)));
-
-        if (sign) {
-            this.value = -this.value;
-        }
-    };
-
-    Prop.prototype.readFloatNoScale = function(stream)
-    {
-        //read 32bit float from stream..
-    };
-
-    Prop.prototype.readFloatNormal = function(stream)
-    {
-    };
-
-    Prop.prototype.readFloatCellCoord = function(stream)
-    {
-    };
-
-    Prop.prototype.readFloatCellCoordIntegral = function(stream)
-    {
-    };
-
-    Prop.prototype.readFloatDefault = function(stream)
-    {
-    };
-
-    Prop.prototype.readVector = function(stream)
-    {
-    };
-
-    Prop.prototype.readVectorXY = function(stream)
-    {
-    };
-
-    Prop.prototype.readString = function(stream)
-    {
-    };
-
-    Prop.prototype.readArray = function(stream)
-    {
-    };
-
-    Prop.prototype.readDataTable = function(stream)
-    {
-    };
-
-    Prop.prototype.readInt64 = function(stream)
-    {
+        return value;
     };
 
     if (!global["dota"]) { global["dota"] = { }; }
-    global["dota"]["Prop"] = Prop;
-    global["dota"]["prop"]["Type"] = new Type();
-    global["dota"]["prop"]["Flag"] = new Flag();
+    global["dota"]["prop"] = {};
+    global["dota"]["prop"]["Decoder"] = Decoder;
+    global["dota"]["prop"]["Type"] = Type;
+    global["dota"]["prop"]["Flag"] = Flag;
 })(this);

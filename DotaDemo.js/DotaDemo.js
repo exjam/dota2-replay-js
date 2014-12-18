@@ -73,24 +73,30 @@
 
     DotaDemo.prototype.read = function(byteBuffer)
     {
-        var header = byteBuffer.readUTF8StringBytes(8);
+        var header = byteBuffer.readUTF8String(8);
         var offset = byteBuffer.readUint32();
 
-        if (header != "PBUFDEM") {
-            //FIXME
-            //throw(new Error("DotaDemo.read: could not find PBUFDEM header"));
+        if (header.substring(0, 7) === "PBUFDEM") {
+            throw new Error("DotaDemo.read: could not find PBUFDEM header");
         }
 
-        for (var i = 0; i < 1000; ++i) {
+        var begin = byteBuffer.offset;
+        var end = byteBuffer.limit;
+        var n = 5000;
+
+        for (var i = 0; i < n; ++i) {
             this.readDemoMessage(byteBuffer);
         }
+
+        console.log(byteBuffer.offset / byteBuffer.limit);
+        console.log('Read first ' + n + ' messages!');
     };
 
     DotaDemo.prototype.readDemoMessage = function(byteBuffer)
     {
-        var kind = byteBuffer.readVarint();
-        var tick = byteBuffer.readVarint();
-        var size = byteBuffer.readVarint();
+        var kind = byteBuffer.readVarint32();
+        var tick = byteBuffer.readVarint32();
+        var size = byteBuffer.readVarint32();
         var comp;
 
         comp = ((kind & dota.msg.DEM_IsCompressed) == dota.msg.DEM_IsCompressed);
@@ -116,7 +122,7 @@
                 if (kind in dota.msg.DemoMessages.isContainer) {
                     buf = decoded.data.clone();
 
-                    while (buf.offset < buf.length) {
+                    while (buf.offset < buf.limit) {
                         this.readGameMessage(buf);
                     }
                 } else if (kind in this.demoMessageListeners) {
@@ -137,8 +143,8 @@
 
     DotaDemo.prototype.readGameMessage = function(byteBuffer)
     {
-        var kind = byteBuffer.readVarint();
-        var size = byteBuffer.readVarint();
+        var kind = byteBuffer.readVarint32();
+        var size = byteBuffer.readVarint32();
 
         if (!(kind in this.gameMessageIgnore)) {
             if (kind in dota.msg.GameMessages) {
@@ -211,60 +217,39 @@
 
     DotaDemo.prototype.flatten = function(table)
     {
-        return this._flatten(table, [], []);
-    };
+        var flattener = new dota.SendTableFlattener(this.netTables, table);
+        var props = flattener.flatten();
+        var priorities = [];
+        priorities.push(64);
 
-    DotaDemo.prototype._flatten = function(table, props, paths)
-    {
-        var acc = this._flatten_collapsible(table, props, paths, []);
-        var path = paths.join(".");
-
-        if (path.length) {
-            path = path.concat(".");
+        for (var i = 0; i < props.length; ++i) {
+            if (priorities.indexOf(props[i].prop.priority) === -1) {
+                priorities.push(props[i].prop.priority);
+            }
         }
 
-        for (var i = 0; i < acc.length; ++i) {
-            var orig = acc[i];
-            var prop = {
-                var_name:       path + orig.var_name,
-                type:           orig.type,
-                flags:          orig.flags,
-                num_bits:       orig.num_bits,
-                priority:       orig.priority,
-                low_value:      orig.low_value,
-                high_value:     orig.high_value,
-                num_elements:   orig.num_elements,
-            };
+        priorities.sort(function(a, b){ return a - b });
 
-            props.push(prop);
+        var offset = 0;
+        for (var i = 0; i < priorities.length; ++i) {
+            var priority = priorities[i];
+            var hole = offset;
+            var cursor = offset;
+
+            while (cursor < props.length) {
+                var prop = props[cursor].prop;
+                if (prop.priority === priority || ((prop.flags & dota.prop.Flag.ChangesOften) && priority == 64)) {
+                    var tmp = props[cursor];
+                    props[cursor] = props[hole];
+                    props[hole] = tmp;
+                    hole++;
+                    offset++;
+                }
+                cursor++;
+            }
         }
 
         return props;
-    };
-
-    DotaDemo.prototype._flatten_collapsible = function(table, props, paths, acc)
-    {
-        for (var i = 0; i < table.props.length; ++i) {
-            var prop = table.props[i];
-
-            if (prop.flags & (dota.prop.Flag.InsideArray | dota.prop.Flag.Exclude)) {
-                continue;
-            }
-
-            if (prop.type == dota.prop.Type.DataTable) {
-                if (prop.flags & dota.prop.Flag.Collapsible) {
-                    this._flatten_collapsible(this.netTables[prop.dt_name], props, paths, acc);
-                } else {
-                    paths.push(prop.dt_name);
-                    this._flatten(this.netTables[prop.dt_name], props, paths);
-                    paths.pop();
-                }
-            } else {
-                acc.push(prop);
-            }
-        }
-
-        return acc;
     };
 
     DotaDemo.prototype.compileNetTables = function()
@@ -292,7 +277,7 @@
                         data = data.clone();
 
                         info.xuid             = data.readUint64();
-                        info.name             = data.readUTF8StringBytes(32);
+                        info.name             = data.readUTF8String(32);
                         info.userID           = data.readUint32();
                         info.guid             = data.readBytes(33);
                         info.friendsID        = data.readUint32();
@@ -327,23 +312,40 @@
             needs_decoder: msg.needs_decoder,
             props: msg.props
         };
+
+        var props = this.netTables[msg.net_table_name].props;
+
+        for (var i = 0; i < props.length; ++i) {
+            var prop = props[i];
+
+            if (prop.type === dota.prop.Type.Array_) {
+                prop.template = props[i - 1];
+            }
+        }
     };
 
     DotaDemo.prototype.readGameCreateStringTable = function(msg)
     {
         if (!this.stringTables) {
             this.stringTables = { };
+            this.stringTablesID = [];
         }
 
         var table = new dota.StringTable(msg);
         table.readStream(msg.num_entries, new BitStream(msg.string_data));
         this.stringTables[msg.name] = table;
+        this.stringTablesID.push(msg.name);
     };
 
     DotaDemo.prototype.readGameUpdateStringTable = function(msg)
     {
-        if (msg.name in this.stringTables) {
-            this.stringTables[msg.name].readStream(msg.num_changed_entries, new BitStream(msg.string_data));
+        var name = this.stringTablesID[msg.table_id];
+
+        if (name && name in this.stringTables) {
+            if (name === "ActiveModifiers") {
+                return;
+            }
+            this.stringTables[name].readStream(msg.num_changed_entries, new BitStream(msg.string_data));
         }
     };
 
@@ -353,8 +355,33 @@
         }
     }
 
-    function readPropList(stream)
+    DotaDemo.prototype.readNetSignonState = function(msg)
     {
+        if (msg.signon_state == 5) {
+            this.compileNetTables();
+        }
+    };
+
+    DotaDemo.prototype.readEntityIndex = function(stream) {
+        var value = stream.readBitNumber(6);
+        var extra = value >> 4;
+
+        switch (extra) {
+        case 0x1:
+            value = (value & 0x0f) | (stream.readBitNumber(4) << 4);
+            break;
+        case 0x2:
+            value = (value & 0x0f) | (stream.readBitNumber(8) << 4);
+            break;
+        case 0x3:
+            value = (value & 0x0f) | (stream.readBitNumber(28) << 4);
+            break;
+        };
+
+        return value + 1;
+    };
+
+    DotaDemo.prototype.readEntityPropList = function(stream) {
         var props = [];
         var cursor = -1;
         var offset = 0;
@@ -376,115 +403,110 @@
         }
 
         return props;
-    }
-
-    DotaDemo.prototype.readNetSignonState = function(msg)
-    {
-        if (msg.signon_state == 5) {
-            this.compileNetTables();
-        }
     };
 
     DotaDemo.prototype.readPacketEntities = function(msg)
     {
         var stream = new BitStream(msg.entity_data.clone());
-        var index = -1;
         var class_bits = Math.ceil(Math.log(this.serverInfo.max_classes) / Math.log(2));
+        var index = -1;
+        var pvs;
+        var start = stream.byteBuffer.offset * 8 + stream.bitOffset;
 
         for (var i = 0; i < msg.updated_entries; ++i) {
-            var pvs;
-
-            {/*Read Entity Header */
-                var value = stream.readBitNumber(6);
-
-                if (value & 0x30) {
-                    var bits = (value >> 2) & 0x0c;
-                    bits += (bits == 12) ? 16 : 0;
-
-                    value = (stream.readBitNumber(bits) << 4) | (value & 0xf);
-                }
-
-                index += value = 1;
-                pvs = stream.readBitNumber(2);
-            }
+            index += this.readEntityIndex(stream);
+            pvs = stream.readBitNumber(2);
 
             switch(pvs) {
                 case 0: /* Preserve */
+                    assert(index in this.entities);
+
+                    var entity = this.entities[index];
+                    entity.pvs = pvs;
+
+                    var propList = this.readEntityPropList(stream);
+                    var recvTable = this.recvTables[entity.cls.table_name];
+
+                    for (var j = 0; j < propList.length; ++j) {
+                        var prop = recvTable[propList[j]];
+                        var value = dota.prop.Decoder.readStream(stream, prop.prop);
+                        entity.properties[prop.name] = value;
+                    }
                     break;
                 case 1: /* Leave */
+                    console.log('Leave entity', index);
+                    assert(index in this.entities);
+
+                    var entity = this.entities[index];
+                    entity.pvs = pvs;
                     break;
                 case 2: /* Enter */
                     var classID = stream.readBitNumber(class_bits);
                     var serial = stream.readBitNumber(10);
 
-                    var props = readPropList(stream);
-
                     assert(classID in this.classInfo);
                     var cls = this.classInfo[classID];
 
-                    assert(cls.table_name in this.netTables);
-                    var sendTable = this.netTables[cls.table_name];
-
-                    var entity = this.entities[index] = {
+                    var entity = {
                         id: index,
                         cls: cls,
-                        table: sendTable
+                        properties: {}
                     };
-
-                    var baselineTable = this.stringTables["instancebaseline"];
-                    var baseline  = baselineTable.string_data["_" + classID];
 
                     assert(cls.table_name in this.recvTables);
                     var recvTable = this.recvTables[cls.table_name];
 
-                    var propList = readPropList(stream);
+                    var baselineTable = this.stringTables["instancebaseline"];
+                    var baseline  = baselineTable.string_data["_" + classID];
 
-                    /* decoder.decodeBaseLine */
-                    {
-                        var baseline = [];
+                    var baseStream = new BitStream(baseline.value.clone());
+                    var basePropList = this.readEntityPropList(baseStream)
 
-                        for (var i = 0; i < recvTable.length; ++i) {
-                            var prop = recvTable[i];
-                            var value = null;/* decode prop based on prop.Type */
-                            baseline.push(value);
-                        }
+                    for (var j = 0; j < basePropList.length; ++j) {
+                        var prop = recvTable[basePropList[j]];
+                        var value = dota.prop.Decoder.readStream(baseStream, prop.prop);
+                        entity.properties[prop.name] = value;
                     }
 
-                    /* decoder.decode(propList) */
-                    {
-                        for (var i = 0; i < propList.length; ++i) {
+                    var propList = this.readEntityPropList(stream);
 
-                        }
+                    for (var j = 0; j < propList.length; ++j) {
+                        var prop = recvTable[propList[j]];
+                        var value = dota.prop.Decoder.readStream(stream, prop.prop);
+                        entity.properties[prop.name] = value;
                     }
 
+
+                    console.log('Enter entity ' + entity.cls.network_name, entity);
+                    this.entities[index] = entity;
                     break;
-                case 3: /* Deleted */
+                case 3: /* Delete */
+                    console.log('Delete entity', index);
+                    assert(index in this.entities);
+                    this.entities[index] = undefined;
                     break;
             }
+        }
 
-            break;
+        if (msg.is_delta) {
+            while (stream.readBit()) {
+                var index = stream.readBitNumber(11);
+                console.log('DeltaDelete entity', index);
+                assert(index in this.entities);
+                this.entities[index] = undefined;
+            }
         }
     };
-/*
-        message CSVCMsg_PacketEntities {
-        optional int32 max_entries = 1;
-        optional int32 updated_entries = 2;
-        optional bool is_delta = 3;
-        optional bool update_baseline = 4;
-        optional int32 baseline = 5;
-        optional int32 delta_from = 6;
-        optional bytes entity_data = 7;
-    }*/
 
     DotaDemo.load = function(byteBuffer) {
         var demo = new DotaDemo();
-        
+
         if (!dcodeIO.ByteBuffer.isByteBuffer(byteBuffer)) {
             throw(new Error("DotaDemo.load expects ByteBuffer as input."));
         }
 
         demo.read(byteBuffer);
-        
+
         return demo;
     };
 
